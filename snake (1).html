@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snake</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    body {
+      background:
+        radial-gradient(circle at 20% 20%, #2a5a28 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, #1e3d1c 0%, transparent 45%),
+        #163016;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #e8f0d8;
+      gap: 12px;
+    }
+    h1 {
+      margin: 0;
+      letter-spacing: 0.12em;
+      font-size: 28px;
+      text-shadow: 0 2px 0 #0b1a0b;
+    }
+    .hud {
+      display: flex;
+      gap: 24px;
+      font-size: 18px;
+    }
+    #board-wrap {
+      padding: 10px;
+      background: #2c6b2a;
+      border: 6px solid #5a3a1a;
+      box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 0 0 3px #7a5228;
+    }
+    canvas {
+      display: block;
+      background: #3d8c38;
+    }
+    .help {
+      font-size: 14px;
+      opacity: .85;
+    }
+  </style>
+</head>
+<body>
+  <h1>SNAKE</h1>
+  <div class="hud">
+    <div>Score: <span id="score">0</span></div>
+    <div>Best: <span id="best">0</span></div>
+  </div>
+  <div id="board-wrap">
+    <canvas width="400" height="400" id="game"></canvas>
+  </div>
+  <div class="help" id="help">Arrow keys or WASD. Space to restart.</div>
+
+<script>
+var canvas = document.getElementById('game');
+var ctx = canvas.getContext('2d');
+var scoreEl = document.getElementById('score');
+var bestEl = document.getElementById('best');
+var helpEl = document.getElementById('help');
+
+var grid = 16;            // stærð hvers kassa
+var wait = 0;             // telja ramma svo leikurinn sé ekki of hradur
+var speed = 9;            // hærri tala = hægara
+var gameOver = false;
+
+var snake = {
+  x: 160,
+  y: 160,
+  dx: grid,
+  dy: 0,
+  cells: [],
+  length: 4
+};
+
+var apple = { x: 320, y: 320 };
+var score = 0;
+var best = 0;
+
+function rand(min, max) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+// settu eplið þar sem snákurinn er ekki
+function newApple() {
+  var ok = false;
+  while (!ok) {
+    apple.x = rand(0, 25) * grid;
+    apple.y = rand(0, 25) * grid;
+    ok = true;
+    for (var i = 0; i < snake.cells.length; i++) {
+      if (snake.cells[i].x === apple.x && snake.cells[i].y === apple.y) {
+        ok = false;
+        break;
+      }
+    }
+  }
+}
+
+function reset() {
+  snake.x = 160;
+  snake.y = 160;
+  snake.dx = grid;
+  snake.dy = 0;
+  snake.cells = [];
+  snake.length = 4;
+  score = 0;
+  scoreEl.textContent = score;
+  gameOver = false;
+  helpEl.textContent = 'Arrow keys or WASD. Space to restart.';
+  newApple();
+}
+
+function drawBoard() {
+
+  for (var y = 0; y < 25; y++) {
+    for (var x = 0; x < 25; x++) {
+      ctx.fillStyle = (x + y) % 2 === 0 ? '#3d8c38' : '#357a32';
+      ctx.fillRect(x * grid, y * grid, grid, grid);
+    }
+  }
+}
+
+function loop() {
+  requestAnimationFrame(loop);
+
+  if (++wait < speed) return;
+  wait = 0;
+
+  drawBoard();
+
+  if (gameOver) {
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#f4e7b2';
+    ctx.font = '28px Georgia';
+    ctx.textAlign = 'center';
+    ctx.fillText('Game over', 200, 180);
+    ctx.font = '16px Georgia';
+    ctx.fillText('Score: ' + score + '   •   Space to restart', 200, 215);
+    return;
+  }
+
+  snake.x += snake.dx;
+  snake.y += snake.dy;
+
+  // veggir drepa, ekkert wrap
+  if (snake.x < 0 || snake.x >= canvas.width || snake.y < 0 || snake.y >= canvas.height) {
+    gameOver = true;
+    helpEl.textContent = 'Hit a wall. Space to restart.';
+    return;
+  }
+
+  snake.cells.unshift({ x: snake.x, y: snake.y });
+  if (snake.cells.length > snake.length) snake.cells.pop();
+
+  // teikna eplið
+  ctx.fillStyle = '#c62828';
+  ctx.beginPath();
+  ctx.arc(apple.x + grid / 2, apple.y + grid / 2, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#2e7d32';
+  ctx.fillRect(apple.x + 9, apple.y + 2, 3, 5);
+
+  snake.cells.forEach(function (cell, index) {
+    // höfuðið aðeins ljósara
+    ctx.fillStyle = index === 0 ? '#c8f59a' : '#7cdb4a';
+    ctx.fillRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2);
+
+    // át eplið
+    if (cell.x === apple.x && cell.y === apple.y) {
+      snake.length++;
+      score++;
+      scoreEl.textContent = score;
+      if (score > best) {
+        best = score;
+        bestEl.textContent = best;
+      }
+      newApple();
+    }
+
+    // drapst þig á eigin hala
+    for (var i = index + 1; i < snake.cells.length; i++) {
+      if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
+        gameOver = true;
+        helpEl.textContent = 'Hit yourself. Space to restart.';
+      }
+    }
+  });
+}
+
+document.addEventListener('keydown', function (e) {
+  var k = e.key;
+
+  if (k === ' ' || k === 'Spacebar') {
+    e.preventDefault();
+    reset();
+    return;
+  }
+
+  if (gameOver) return;
+
+  // ekki snúa beint við, annars éturðu þig
+  if ((k === 'ArrowLeft' || k === 'a' || k === 'A') && snake.dx === 0) {
+    snake.dx = -grid; snake.dy = 0;
+  } else if ((k === 'ArrowUp' || k === 'w' || k === 'W') && snake.dy === 0) {
+    snake.dy = -grid; snake.dx = 0;
+  } else if ((k === 'ArrowRight' || k === 'd' || k === 'D') && snake.dx === 0) {
+    snake.dx = grid; snake.dy = 0;
+  } else if ((k === 'ArrowDown' || k === 's' || k === 'S') && snake.dy === 0) {
+    snake.dy = grid; snake.dx = 0;
+  }
+});
+
+reset();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
